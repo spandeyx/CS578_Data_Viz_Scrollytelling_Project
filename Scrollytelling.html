@@ -3,115 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EV vs ICE Environmental Trade-Offs</title>
+    <title>EV vs ICE Environmental Trade-Offs (Comparative View)</title>
     <!-- Load Tailwind CSS for utility styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load D3.js library -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <!-- Font Awesome for car icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
-    <!-- Link the external CSS file -->
-    <link rel="stylesheet" href="scrollytelling.css">
+    <!-- Custom Styles -->
+    <style>
+        /* Import Inter font for modern look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    </style>
+    <link rel="stylesheet" href="Scrollytelling.css">
 </head>
-<body>
-    <div id="scrolly-main-container" class="flex flex-col lg:flex-row min-h-screen">
+<body class="bg-gray-900">
+
+    <header class="bg-gray-800 shadow-xl p-4 sticky top-0 z-20">
+        <h1 class="text-2xl font-extrabold text-white">The Lifecycle Cost: EV vs ICE</h1>
+        <p class="text-sm text-gray-400 mb-3">Select a perspective:</p>
+        <div class="flex space-x-4">
+            <button id="balanced-btn" class="px-4 py-2 text-white font-semibold rounded-lg shadow-md bg-green-600 hover:bg-green-700 transition">For Favor (Balanced View)</button>
+            <button id="critical-btn" class="px-4 py-2 text-white font-semibold rounded-lg shadow-md bg-red-600 hover:bg-red-700 transition">Against (Critical View)</button>
+        </div>
+    </header>
+
+    <div id="scrolly-main-container" class="flex flex-col lg:flex-row">
         
-        <!-- Left Column: Sticky Graphic (Visualization) - order 2 on large screens -->
-        <div id="graphic-col" class="lg:w-2/3 order-1 lg:order-2">
-            <!-- D3 SVG will be appended here -->
-            <div id="graphic" class="w-full h-full">
-                <!-- SVG content will be rendered here by D3 -->
+        <!-- Left Column: Narrative Sections -->
+        <div id="sections-col" class="lg:w-1/3 order-2 lg:order-1 p-4 lg:p-8 space-y-12">
+
+            <!-- Balanced Story Section (Initial View) -->
+            <div id="balanced-story" class="story-sections" style="display: block;">
+                <h2 class="text-2xl font-bold mb-6 text-green-500">Scenario: Clean Grid & Efficient Recycling</h2>
+                
+                <!-- Step 0: Initial View (data-step="0") -->
+                <div class="step is-active" data-step="0">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Introduction: The Ideal Scenario</h3>
+                        <p>This scenario focuses on <span class="text-green-400 font-medium">low-carbon manufacturing</span> and a <span class="text-green-400 font-medium">clean</span> electricity grid for charging, allowing the EV to realize its maximum environmental potential.</p>
+                    </div>
+                </div>
+
+                <!-- Step 1: Manufacturing Emissions -->
+                <div class="step" data-step="1">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 1: Overcoming the Initial Deficit</h3>
+                        <p>While the EV has a higher initial manufacturing footprint, its superior operational efficiency means it quickly starts closing the gap with the ICE vehicle.</p>
+                        <p class="mt-4 font-semibold text-sm text-green-500">The EV starts with a small environmental debt.</p>
+                    </div>
+                </div>
+
+                <!-- Step 2: Use Phase Emissions -->
+                <div class="step" data-step="2">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-green-500 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 2: Driving on a Clean Grid</h3>
+                        <p>When charged using electricity generated primarily by renewables, the EV's operational emissions are nearly zero. The graphic on the right is **not visible** in this view, as the benefit is clear over time.</p>
+                        <p class="mt-4 font-semibold text-sm text-green-500">The operational advantage is key on a clean grid.</p>
+                    </div>
+                </div>
+
+                <!-- Step 3: Disposal & Recycling -->
+                <div class="step" data-step="3">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 3: Material Reclamation Success</h3>
+                        <p>Advanced recycling processes allow for the highly efficient reclamation of battery materials, significantly reducing the overall resource depletion impact over the vehicle's lifespan.</p>
+                        <p class="mt-4 font-semibold text-sm text-green-500">Recycling minimizes resource consumption.</p>
+                    </div>
+                </div>
+
+                <!-- Step 4: Net Outcome -->
+                <div class="step" data-step="4">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 4: Final Balance Achieved</h3>
+                        <p>Factoring in a clean grid and efficient recycling, the EV achieves a substantial net environmental benefit compared to the ICE car.</p>
+                        <p class="mt-4 font-semibold text-lg text-green-500">The EV is the clear environmental winner.</p>
+                    </div>
+                </div>
+
+                <!-- Sentinel Step to hide visualization after the end (data-step="5") -->
+                <div class="step is-sentinel h-[90vh]" data-step="5">
+                    <h2 class="opacity-0 h-0 p-0 m-0">Post-Scroll Spacer</h2>
+                    <p class="opacity-0">Scroll finished. The graphic will disappear.</p>
+                </div>
+            </div>
+
+
+            <!-- Critical Story Section -->
+            <div id="critical-story" class="story-sections" style="display: none;">
+                <h2 class="text-2xl font-bold mb-6 text-red-500">Scenario: Dirty Grid & High Manufacturing Impact</h2>
+                
+                <!-- Step 0: Initial View (data-step="0") -->
+                <div class="step is-active" data-step="0">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Introduction: Challenging the Assumption</h3>
+                        <p>This scenario focuses on <span class="text-red-400 font-medium">high-carbon manufacturing</span> and a <span class="text-red-400 font-medium">dirty</span> electricity grid for charging, testing the EV's environmental resilience when its operational advantage is minimized.</p>
+                    </div>
+                </div>
+
+                <!-- Step 1: Manufacturing Emissions -->
+                <div class="step" data-step="1">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 1: The Manufacturing Deficit</h3>
+                        <p>The environmental impact of raw material extraction (lithium, cobalt) and battery cell assembly gives the EV a significantly higher initial footprint than the ICE.</p>
+                        <p class="mt-4 font-semibold text-sm text-red-500">The EV starts with a massive environmental debt.</p>
+                    </div>
+                </div>
+
+                <!-- Step 2: Use Phase Emissions (VISUALIZATION TARGET) -->
+                <div class="step" data-step="2">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-red-500 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 2: Driving on a Dirty Grid <span class="text-red-500">(Visualization Below)</span></h3>
+                        <p>If the EV is charged using electricity generated primarily by coal or gas, its operational emissions rise dramatically. The **Radial Bar Chart** to the right compares the **total environmental impact** during the use phase for both cars in this critical scenario.</p>
+                        <p class="mt-4 font-semibold text-sm text-red-500">The operational advantage is lost on a dirty grid.</p>
+                    </div>
+                </div>
+
+                <!-- Step 3: Disposal & Recycling -->
+                <div class="step" data-step="3">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 3: Battery Resource Challenge</h3>
+                        <p>The focus shifts to resource depletion. The difficulty and energy cost of reclaiming battery materials means the resource demand remains a critical issue for the EV.</p>
+                        <p class="mt-4 font-semibold text-sm text-red-500">The resource demand remains a critical issue.</p>
+                    </div>
+                </div>
+
+                <!-- Step 4: Net Outcome -->
+                <div class="step" data-step="4">
+                    <div class="p-6 bg-gray-800 rounded-lg shadow-xl mb-12 border-l-4 border-gray-600 text-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-white">Step 4: Final Balance</h3>
+                        <p>When factoring in high manufacturing impact and high charging emissions, the EV may fail to achieve any substantial environmental benefit over the ICE.</p>
+                        <p class="mt-4 font-semibold text-lg text-red-500">Consider the full lifecycle, not just the tailpipe.</p>
+                    </div>
+                </div>
+
+                <!-- Sentinel Step to hide visualization after the end (data-step="5") -->
+                <div class="step is-sentinel h-[90vh]" data-step="5">
+                    <h2 class="opacity-0 h-0 p-0 m-0">Post-Scroll Spacer</h2>
+                    <p class="opacity-0">Scroll finished. The graphic will disappear.</p>
+                </div>
             </div>
         </div>
 
-        <!-- Right Column: Narrative Sections (Scrollable) - order 1 on large screens -->
-        <div id="sections-col" class="lg:w-1/3 order-2 lg:order-1">
-            <header class="mb-8 p-4 bg-gray-900 rounded-xl shadow-lg border border-gray-700">
-                <h1 class="text-3xl font-extrabold text-white mb-2">Charging Ahead or Burning Out?</h1>
-                <p class="text-lg text-gray-400">Visualizing the Environmental Trade-Offs Between EVs and ICEs</p>
-                <div class="mt-4 flex space-x-2 p-1 bg-gray-700 rounded-lg">
-                    <button id="balanced-btn" class="flex-1 py-2 px-4 text-sm font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150">Balanced Perspective</button>
-                    <button id="critical-btn" class="flex-1 py-2 px-4 text-sm font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150">Critical Perspective</button>
-                </div>
-            </header>
-
-            <div id="sections">
-                <!-- Balanced Perspective Narrative (Default) -->
-                <div class="space-y-12" data-story="balanced">
-                    <div class="step is-active" data-step="0">
-                        <!-- Removed explicit text color here; relying on CSS to set it to green/light gray -->
-                        <h2>Introduction: The Starting Line</h2>
-                        <p>We begin by looking at the environmental debt both an Electric Vehicle (EV) and an Internal Combustion Engine (ICE) vehicle incur before they even leave the factory. Both vehicles start with a low, but equal, environmental impact score.</p>
-                        <p class="mt-3 text-sm text-gray-400">The vertical axis represents Environmental Impact, where the bottom is "Worse" and the top is "Better".</p>
-                    </div>
-
-                    <div class="step" data-step="1">
-                        <h2>Step 1: Manufacturing Emissions</h2>
-                        <p>The manufacturing process is where the EV faces its first challenge. Battery production for the EV requires intensive energy and mining, giving it a higher initial $\text{CO}_2$ footprint than a traditional ICE vehicle.</p>
-                        <p class="mt-3 text-sm text-gray-400">Metric changes to: Manufacturing $\text{CO}_2$ per vehicle (Lower on the scale is worse for the environment).</p>
-                    </div>
-
-                    <div class="step" data-step="2">
-                        <h2>Step 2: Operational Efficiency (The Payback)</h2>
-                        <p>Once on the road, the EV's advantage becomes clear. Its operation is significantly more efficient than the ICE, especially when powered by a cleaner electricity grid, leading to much lower emissions per kilometer driven.</p>
-                        <p class="mt-3 text-sm text-gray-400">Metric changes to: Operational Efficiency (Higher on the scale is better/more efficient).</p>
-                    </div>
-
-                    <div class="step" data-step="3">
-                        <h2>Step 3: Total Lifecycle Impact</h2>
-                        <p>By the end of its life, the question is which vehicle *pays back* its initial environmental debt. For this step, we visualize the **Total $\text{CO}_2$ Emissions per km** over a typical driving distance, showcasing the crossover point. The scale is back to reflecting emissions.</p>
-                        <p class="mt-3 text-sm text-gray-400">EV's lower operational emissions often allow it to achieve a lower overall lifecycle footprint compared to ICE.</p>
-                    </div>
-
-                    <div class="step" data-step="4">
-                        <h2>Conclusion: Policy & Future Outlook</h2>
-                        <p>The sustainability of an EV is highly dependent on grid cleanliness. Policy supporting renewable energy sources will accelerate the environmental payoff. Future improvements in battery recycling and production efficiency will further decrease the EV's initial impact.</p>
-                        <p class="mt-4 font-semibold text-lg text-blue-400">Thank you for exploring the data.</p>
-                    </div>
-                </div>
-
-                <!-- Critical Perspective Narrative (Initially Hidden) -->
-                <div class="space-y-12 hidden" data-story="critical">
-                    <div class="step is-active" data-step="0">
-                        <h2>Introduction: The Environmental Toll</h2>
-                        <p>We start with a focus on the true environmental cost of both vehicles. Both have an impact, but the hidden costs of EV production deserve close scrutiny.</p>
-                        <p class="mt-3 text-sm text-gray-400">The vertical axis represents Environmental Impact, where the bottom is "Worse" and the top is "Better".</p>
-                    </div>
-
-                    <div class="step" data-step="1">
-                        <h2>Step 1: The Mining Footprint</h2>
-                        <p>The EV's battery relies on massive lithium and cobalt mining operations, which often have significant, localized environmental and ethical costs. This immediate debt makes the EV's initial impact much higher.</p>
-                        <p class="mt-3 text-sm text-gray-400">Metric changes to: Manufacturing $\text{CO}_2$ per vehicle (Lower on the scale is worse for the environment).</p>
-                    </div>
-
-                    <div class="step" data-step="2">
-                        <h2>Step 2: Grid Dependency</h2>
-                        <p>An EV is only as clean as the electricity grid it plugs into. In areas relying heavily on coal or natural gas, the "zero-emission" car is actually a tailpipe-shift, making its operational efficiency comparable to, or only slightly better than, a modern ICE.</p>
-                        <p class="mt-3 text-sm text-gray-400">Metric changes to: Operational Emissions (Higher on the scale is better/more efficient).</p>
-                    </div>
-
-                    <div class="step" data-step="3">
-                        <h2>Step 3: Longevity and Disposal</h2>
-                        <p>Battery degradation and limited recycling infrastructure mean the high initial environmental cost of the EV might not be fully paid off if the car has a shorter lifespan or the battery is improperly disposed of. ICE vehicles, while still polluting, have a longer, more predictable lifecycle curve.</p>
-                        <p class="mt-3 text-sm text-gray-400">Focus on the overall Total $\text{CO}_2$ Emissions per km, highlighting the risk of a short EV life.</p>
-                    </div>
-
-                    <div class="step" data-step="4">
-                        <h2>Conclusion: A Critical View</h2>
-                        <p>True sustainability requires addressing manufacturing, sourcing, and grid energy simultaneously. Until these upstream factors are clean, the EV transition risks merely shifting environmental burdens rather than eliminating them.</p>
-                        <p class="mt-4 font-semibold text-lg text-red-400">Consider the full lifecycle, not just the tailpipe.</p>
-                    </div>
-                </div>
+        <!-- Right Column: Sticky Graphic (Visualization) -->
+        <div id="graphic-col" class="lg:w-2/3 order-1 lg:order-2 is-hidden">
+            <!-- D3 SVG will be appended here -->
+            <div id="graphic" class="w-full h-full">
             </div>
         </div>
     </div>
 
-    <footer class="text-center p-8 text-gray-500 text-sm border-t border-gray-700 mt-12">
+    <footer class="text-center p-8 text-gray-500 text-sm border-t mt-12 bg-gray-800">
         Data Visualization Project based on EPA, IEA, and Our World in Data concepts.
     </footer>
 
     <!-- Link the external JavaScript file -->
-    <script src="scrollytelling.js"></script>
+    <script src="Scrollytelling.js"></script>
 </body>
 </html>

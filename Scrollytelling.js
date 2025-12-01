@@ -1,347 +1,328 @@
 // --- D3 Visualization and Scroll Handler Logic ---
 
-// Global D3 variables
-let svg, height, width;
-let y, evCar, iceCar, scaleMetricTitle, evDataLabel, iceDataLabel, evPath, icePath, evScaleLine, iceScaleLine;
-let col1_base_x, col2_base_x, scale_x; // Base X coordinates
-let currentEvX, currentIceX; // Dynamic X coordinates
+// Global D3 variables for the Radial Bar Chart
+let svg, height, width, chartGroup;
+let outerRadius, innerRadius;
 
-// Data structure holding normalized car positions (0.0 to 1.0) and the metric title for each step.
-// The scale runs from bottom (0.0 - Worst) to top (1.0 - Best/Most Efficient).
-// xOffset is 0 for linear movement.
-const stepsData = [
-    // Step 0: Initial position
-    { evPos: 0.1, icePos: 0.1, metric: "Environmental Impact", evValue: "Start", iceValue: "Start", xOffset: 0 },
-    
-    // Step 1: Manufacturing Emissions (Lower on scale = Worse for environment)
-    { evPos: 0.3, icePos: 0.6, metric: "Manufacturing $\\text{CO}_2$ per vehicle", evValue: "12 tons", iceValue: "6 tons", xOffset: 0 },
-    
-    // Step 2: Operational Efficiency (Higher on scale = Better/More Efficient)
-    { evPos: 0.9, icePos: 0.5, metric: "Operational Efficiency (MPG/MPGe)", evValue: "110 MPGe", iceValue: "30 MPG", xOffset: 0 },
-    
-    // Step 3: Total Lifecycle (Lower on scale = Worse for environment)
-    { evPos: 0.6, icePos: 0.4, metric: "Total $\\text{CO}_2$ Emissions per km", evValue: "150 g/km", iceValue: "200 g/km", xOffset: 0 },
+// Margin definition for the visualization
+const margin = { top: 60, right: 60, bottom: 60, left: 60 };
+let innerWidth, innerHeight;
 
-    // Step 4: Conclusion (Normalized to the final impact)
-    { evPos: 0.7, icePos: 0.3, metric: "Long-Term Environmental Score", evValue: "Good", iceValue: "Poor", xOffset: 0 }
+let currentStory = 'balanced'; // Set balanced as default
+let observer; // Global observer instance
+
+// Get the graphic column element and story/button elements
+const graphicCol = document.getElementById('graphic-col');
+const balancedStoryDiv = document.getElementById('balanced-story');
+const criticalStoryDiv = document.getElementById('critical-story');
+const balancedBtn = document.getElementById('balanced-btn');
+const criticalBtn = document.getElementById('critical-btn');
+
+// --- DATA ---
+// Normalized data (0.0 = Low Impact, 1.0 = High Impact)
+
+// Data for the "For Favor" (Balanced View) - Not used for visualization
+const balancedStepsData = [
+    { evImpact: 0.3, iceImpact: 0.5, metric: "Environmental Trade-Offs (Low)" },
 ];
 
-const margin = { top: 100, right: 20, bottom: 50, left: 20 };
-const pathDataHistory = { ev: [], ice: [] };
+// Data for the "Against" (Critical View)
+const criticalStepsData = [
+    // Step 0-1: Not used for visualization
+    { evImpact: 0.0, iceImpact: 0.0, metric: "" },
+    { evImpact: 0.7, iceImpact: 0.4, metric: "Manufacturing (Metals/Toxics)" },
+    // Step 2: Use Phase (Dirty Grid) - THE TARGET DATA POINT
+    // EV Impact: 0.9 (Very High Impact due to dirty charging)
+    // ICE Impact: 0.7 (High Impact from fuel combustion)
+    { evImpact: 0.9, iceImpact: 0.7, metric: "Use Phase Emissions (Dirty Grid)" }, 
+    // Step 3-4: Not used for visualization
+    { evImpact: 0.8, iceImpact: 0.6, metric: "Resource Depletion/Recycling" },
+    { evImpact: 0.75, iceImpact: 0.65, metric: "Net Lifecycle Impact" },
+];
 
-/**
- * Initializes the SVG and all fixed D3 elements (scale, labels, etc.).
- */
-function initializeVisualization() {
-    // 1. Setup dimensions and clear previous SVG
-    const graphicContainer = d3.select("#graphic");
-    width = graphicContainer.node().clientWidth;
-    height = graphicContainer.node().clientHeight;
+const TARGET_STEP_INDEX = 2; // The only step where visualization is shown
 
-    graphicContainer.select("svg").remove(); // Clear existing SVG on resize
+// Pre-process the data for the radial bar chart
+const getRadialChartData = () => {
+    // We only call this when currentStory is 'critical' and at TARGET_STEP_INDEX
+    const data = criticalStepsData[TARGET_STEP_INDEX];
+    
+    // Normalize EV and ICE impact for visualization scale (0-100)
+    // We'll use 1.0 as the max possible impact (100)
+    return [
+        { vehicle: 'EV on Dirty Grid', impactScore: data.evImpact, color: '#ef4444' }, // Red
+        { vehicle: 'ICE Vehicle', impactScore: data.iceImpact, color: '#f97316' }, // Orange
+    ];
+};
 
-    svg = graphicContainer.append("svg")
+// --- INITIALIZATION (Radial Chart Setup) ---
+const initializeVisualization = () => {
+    // 1. Clear previous content and set up SVG
+    d3.select("#graphic").select("svg").remove();
+    const graphicContainer = document.getElementById('graphic');
+    
+    if (!graphicContainer.clientWidth || !graphicContainer.clientHeight) return;
+    
+    width = graphicContainer.clientWidth;
+    height = graphicContainer.clientHeight;
+    
+    // Calculate Radius
+    const minDim = Math.min(width, height);
+    outerRadius = (minDim / 2) - margin.top; // Max available radius
+    innerRadius = outerRadius * 0.4; // Inner circle for text/center focus
+
+    svg = d3.select("#graphic")
+        .append("svg")
         .attr("width", width)
         .attr("height", height);
 
-    // 2. Define the vertical Y scale
-    y = d3.scaleLinear() 
-        .domain([0, 1]) // Data domain (0.0 = worst/bottom, 1.0 = best/top)
-        .range([height - margin.bottom, margin.top]); // Pixel range
+    // Center the chart group
+    chartGroup = svg.append("g")
+        .attr("transform", `translate(${width / 2}, ${height / 2})`);
+};
 
-    // 3. Define the Base X coordinates
-    scale_x = width / 2;
-    const offset = 100;
-    col1_base_x = scale_x - offset; // EV Car Position (Left Base)
-    col2_base_x = scale_x + offset; // ICE Car Position (Right Base)
-
-    // Reset path history for resize
-    pathDataHistory.ev = [];
-    pathDataHistory.ice = [];
-
-    // 4. Create the central vertical scale line
-    svg.append("line")
-        .attr("class", "scale-line")
-        .attr("x1", scale_x)
-        .attr("y1", y(0))
-        .attr("x2", scale_x)
-        .attr("y2", y(1));
-
-    // 5. Create fixed scale labels
-    svg.append("text")
-        .attr("class", "y-axis-label")
-        .attr("x", scale_x)
-        .attr("y", y(1) - 15)
-        .text("Better / More Efficient");
-
-    svg.append("text")
-        .attr("class", "y-axis-label")
-        .attr("x", scale_x)
-        .attr("y", y(0) + 15)
-        .text("Worse / Less Efficient");
-
-    // 6. Create Metric Title (Dynamic text element)
-    scaleMetricTitle = svg.append("text")
-        .attr("class", "metric-title")
-        .attr("x", scale_x)
-        .attr("y", margin.top / 2)
-        .text(stepsData[0].metric);
-
-    // Calculate initial dynamic X positions
-    const initialData = stepsData[0];
-    currentEvX = col1_base_x + initialData.xOffset;
-    currentIceX = col2_base_x + initialData.xOffset;
+// --- UPDATE VISUALIZATION ON SCROLL STEP (Radial Chart) ---
+const updateVisualization = () => {
     
-    // Initialize history with step 0 data
-    pathDataHistory.ev.push({ x: currentEvX, y: y(initialData.evPos) });
-    pathDataHistory.ice.push({ x: currentIceX, y: y(initialData.icePos) });
+    if (currentStory !== 'critical') return; // Only update for critical view
 
-    // 7. Create Car Icon Paths (The Track)
-    const lineGenerator = d3.line()
-        .x(d => d.x)
-        .y(d => d.y)
-        .curve(d3.curveLinear);
+    const data = getRadialChartData();
+    const maxImpact = 1.0; // The theoretical max impact for normalization
 
-    evPath = svg.append("path")
-        .attr("class", "path-line ev-path")
-        .attr("d", lineGenerator(pathDataHistory.ev));
+    // 1. Scale for Bar Height (Radial Length)
+    const yRadial = d3.scaleLinear()
+        .domain([0, maxImpact]) 
+        .range([innerRadius, outerRadius]);
 
-    icePath = svg.append("path")
-        .attr("class", "path-line ice-path")
-        .attr("d", lineGenerator(pathDataHistory.ice));
+    // 2. Scale for Angular Position (Band)
+    const xRadial = d3.scaleBand()
+        .domain(data.map(d => d.vehicle))
+        .range([0, 2 * Math.PI]) // Full circle
+        .align(0.5)
+        .paddingInner(0.1)
+        .paddingOuter(0.3);
+
+    // 3. Arc Generator
+    const arc = d3.arc()
+        .innerRadius(innerRadius)
+        .outerRadius(d => yRadial(d.impactScore))
+        .startAngle(d => xRadial(d.vehicle))
+        .endAngle(d => xRadial(d.vehicle) + xRadial.bandwidth())
+        .cornerRadius(10); // Rounded ends for the bars
+
+    // 4. Data Join (Radial Bars)
+    const bars = chartGroup.selectAll(".radial-bar")
+        .data(data, d => d.vehicle);
+
+    // 5. Enter/Update Selection
+    bars.enter().append("path")
+        .attr("class", "radial-bar")
+        .attr("fill", d => d.color)
+        .attr("d", arc)
+        .each(function(d) { this._current = { impactScore: innerRadius }; }) // Store initial state for smooth transition
+        .merge(bars)
+        .transition().duration(1500)
+        .attrTween("d", function(d) {
+            // Tween the impactScore from previous state to new state
+            const interpolate = d3.interpolate(this._current.impactScore, d.impactScore);
+            this._current.impactScore = d.impactScore;
+            return function(t) {
+                return arc({
+                    vehicle: d.vehicle,
+                    impactScore: interpolate(t) 
+                });
+            };
+        });
+
+    // 6. Labels (Text along the circumference)
+    const labels = chartGroup.selectAll(".radial-label")
+        .data(data, d => d.vehicle);
+
+    // Calculate the midpoint angle for labeling
+    const getLabelAngle = (d) => xRadial(d.vehicle) + xRadial.bandwidth() / 2;
+
+    labels.enter().append("text")
+        .attr("class", "radial-label")
+        .attr("text-anchor", d => (getLabelAngle(d) > Math.PI ? "end" : "start"))
+        .attr("transform", d => {
+            const angle = getLabelAngle(d) - Math.PI / 2;
+            const x = yRadial(d.impactScore) * Math.cos(angle);
+            const y = yRadial(d.impactScore) * Math.sin(angle);
+            
+            // Rotate the text to be perpendicular to the bar
+            const rotation = (getLabelAngle(d) * 180 / Math.PI) - 90;
+            return `translate(${x}, ${y}) rotate(${rotation})`;
+        })
+        .merge(labels)
+        .transition().duration(1500)
+        .attr("x", 10) // Small offset
+        .attr("y", 0) // Centered on the bar end line
+        .attr("transform", d => {
+            // Position the label slightly outside the bar end
+            const angle = getLabelAngle(d) - Math.PI / 2;
+            const r = yRadial(d.impactScore) + 15; // 15px outside the bar
+            const x = r * Math.cos(angle);
+            const y = r * Math.sin(angle);
+            
+            // Text rotation fix
+            let rotation = (getLabelAngle(d) * 180 / Math.PI) - 90;
+            if (getLabelAngle(d) > Math.PI) {
+                 rotation += 180; // Flip text on the left side
+            }
+            
+            return `translate(${x}, ${y}) rotate(${rotation})`;
+        })
+        .text(d => `${d.vehicle}: ${d3.format(".0%")(d.impactScore)}`);
+
+
+    // 7. Center Text (Title and comparison)
+    
+    // Clear previous center text
+    chartGroup.selectAll(".center-text").remove(); 
+
+    // Calculate the difference for center display
+    const evImpact = data.find(d => d.vehicle.startsWith('EV')).impactScore;
+    const iceImpact = data.find(d => d.vehicle.startsWith('ICE')).impactScore;
+    const difference = ((evImpact - iceImpact) / iceImpact); 
+
+    chartGroup.append("text")
+        .attr("class", "center-text impact-center-text")
+        .attr("y", -10)
+        .text(d3.format("+.0%")(difference));
         
-    // 8. Create Car Icons (The main moving elements)
-    // Using Checkered Flag icon (&#xf11e;) 
-    const carIconHtml = "&#xf11e;"; 
+    chartGroup.append("text")
+        .attr("class", "center-text impact-unit-text")
+        .attr("y", 30)
+        .text("Higher Impact than ICE");
+        
+    // 8. Exit Selection
+    bars.exit().remove();
+    labels.exit().remove();
+};
+
+
+// --- SCROLL HANDLER (Intersection Observer) ---
+
+const setupScrollHandler = () => {
+    // Disconnect old observer if it exists
+    if (observer) observer.disconnect();
+
+    const visibleSectionId = `${currentStory}-story`;
+    const steps = d3.selectAll(`#${visibleSectionId} .step`).nodes();
     
-    evCar = svg.append("text")
-        .attr("class", "car-icon ev-car")
-        .attr("text-anchor", "middle")
-        .html(carIconHtml) 
-        .attr("transform", `translate(${currentEvX}, ${y(initialData.evPos)})`);
-
-    iceCar = svg.append("text")
-        .attr("class", "car-icon ice-car")
-        .attr("text-anchor", "middle")
-        .html(carIconHtml) 
-        .attr("transform", `translate(${currentIceX}, ${y(initialData.icePos)})`);
-
-    // 9. Create Data Labels for current position
-    evDataLabel = svg.append("text")
-        .attr("class", "data-label-text ev-car")
-        .attr("text-anchor", "end")
-        .attr("x", currentEvX - 10)
-        .attr("y", y(initialData.evPos) - 30)
-        .text(initialData.evValue);
-
-    iceDataLabel = svg.append("text")
-        .attr("class", "data-label-text ice-car")
-        .attr("text-anchor", "start")
-        .attr("x", currentIceX + 10)
-        .attr("y", y(initialData.evPos) - 30)
-        .text(initialData.iceValue);
-
-    // 10. Create small lines connecting car to scale
-    evScaleLine = svg.append("line")
-        .attr("class", "scale-connector-line")
-        .attr("stroke", "rgba(16, 185, 129, 0.4)")
-        .attr("stroke-dasharray", "5,5")
-        .attr("x1", currentEvX)
-        .attr("y1", y(initialData.evPos))
-        .attr("x2", scale_x)
-        .attr("y2", y(initialData.evPos));
-
-    iceScaleLine = svg.append("line")
-        .attr("class", "scale-connector-line")
-        .attr("stroke", "rgba(249, 115, 22, 0.4)")
-        .attr("stroke-dasharray", "5,5")
-        .attr("x1", currentIceX)
-        .attr("y1", y(initialData.icePos))
-        .attr("x2", scale_x)
-        .attr("y2", y(initialData.icePos));
-}
-
-/**
- * Updates the visualization based on the currently active step.
- * @param {number} stepIndex - The index of the current step (0 to stepsData.length - 1).
- */
-function updateVisualization(stepIndex) {
-    const data = stepsData[stepIndex];
-
-    // Calculate new dynamic X positions 
-    const newEvX = col1_base_x + data.xOffset;
-    const newIceX = col2_base_x + data.xOffset;
-
-    // 1. Update the Metric Title
-    scaleMetricTitle.text(data.metric);
-
-    // 2. Animate Car Movement (and Data Label positioning)
-    evCar.transition()
-        .duration(800)
-        .attr("transform", `translate(${newEvX}, ${y(data.evPos)})`);
-
-    iceCar.transition()
-        .duration(800)
-        .attr("transform", `translate(${newIceX}, ${y(data.icePos)})`);
-
-    // 3. Update Data Labels and Connector Lines (similar to car movement)
-    evDataLabel.transition()
-        .duration(800)
-        .attr("x", newEvX - 10)
-        .attr("y", y(data.evPos) - 30)
-        .text(data.evValue);
-
-    iceDataLabel.transition()
-        .duration(800)
-        .attr("x", newIceX + 10)
-        .attr("y", y(data.icePos) - 30)
-        .text(data.iceValue);
-
-    evScaleLine.transition()
-        .duration(800)
-        .attr("x1", newEvX)
-        .attr("y1", y(data.evPos))
-        .attr("y2", y(data.evPos));
-
-    iceScaleLine.transition()
-        .duration(800)
-        .attr("x1", newIceX)
-        .attr("y1", y(data.icePos))
-        .attr("y2", y(data.icePos));
-
-
-    // 4. Update Path History (Draw the track up to the current step)
+    // Reset active class across all stories
+    d3.selectAll('.story-sections .step').classed('is-active', false);
     
-    // Clear the history and rebuild it ONLY up to the current stepIndex.
-    pathDataHistory.ev = [];
-    pathDataHistory.ice = [];
+    // Set the first step of the visible story as active initially
+    d3.select(`#${visibleSectionId} .step[data-step="0"]`).classed('is-active', true);
 
-    for (let i = 0; i <= stepIndex; i++) {
-        const step = stepsData[i];
-        const stepEvX = col1_base_x + step.xOffset;
-        const stepIceX = col2_base_x + step.xOffset;
-
-        pathDataHistory.ev.push({ x: stepEvX, y: y(step.evPos) });
-        pathDataHistory.ice.push({ x: stepIceX, y: y(step.icePos) });
-    }
-    
-    // Line generator for the paths
-    const lineGenerator = d3.line()
-        .x(d => d.x)
-        .y(d => d.y)
-        .curve(d3.curveLinear); // Straight, linear path
-
-    // Render the new path
-    evPath.transition()
-        .duration(800)
-        .attr("d", lineGenerator(pathDataHistory.ev));
-
-    icePath.transition()
-        .duration(800)
-        .attr("d", lineGenerator(pathDataHistory.ice));
-}
-
-
-/**
- * Sets up the Intersection Observer to handle scrolling logic.
- */
-function setupScrollHandler() {
-    // Select all step elements
-    const sectionsContainer = document.getElementById('sections');
-    const steps = d3.selectAll(".step").nodes();
-
-    const observer = new IntersectionObserver((entries) => {
+    observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            const stepElement = d3.select(entry.target);
-            const stepIndex = parseInt(stepElement.attr("data-step"));
+            const stepIndex = parseInt(entry.target.dataset.step);
 
-            // Check if the element is actively intersecting (near the center of the viewport)
             if (entry.isIntersecting) {
-                // Remove 'is-active' from all steps
-                d3.selectAll(".step").classed("is-active", false);
-
-                // Add 'is-active' to the current step
-                stepElement.classed("is-active", true);
-
-                // Update the visualization
-                updateVisualization(stepIndex);
+                
+                // Only mark active in the currently visible story
+                d3.selectAll(`#${visibleSectionId} .step`).classed('is-active', false);
+                d3.select(entry.target).classed('is-active', true);
+                
+                // CRITICAL VISIBILITY LOGIC: ONLY show for Critical Story, Step 2
+                if (currentStory === 'critical' && stepIndex === TARGET_STEP_INDEX) {
+                    graphicCol.classList.remove('is-hidden');
+                    updateVisualization();
+                } else {
+                    graphicCol.classList.add('is-hidden');
+                }
+            } else if (currentStory === 'critical' && stepIndex === TARGET_STEP_INDEX && !entry.isIntersecting) {
+                 // Ensure it hides immediately when leaving step 2 of critical view
+                 graphicCol.classList.add('is-hidden');
             }
         });
     }, {
-        // Detect when the step is roughly in the middle 50% of the viewport (vertical center)
-        rootMargin: `0px 0px -50% 0px`, 
+        root: null, // viewport
+        rootMargin: "-45% 0px -45% 0px", // Trigger zone in the middle of the screen
         threshold: 0 
     });
 
-    // Attach the observer to each step
+    // Attach observer to each step in the *active* story
     steps.forEach(step => observer.observe(step));
-
-    // Set the initial state (Step 0) on load
-    d3.select('.step[data-step="0"]').classed("is-active", true);
-    updateVisualization(0);
-}
-
-// --- Execution and Story Toggle ---
-
-/**
- * Handles the logic for switching between 'balanced' and 'critical' story modes.
- */
-function updateStory(story) {
-    const sections = document.getElementById('sections');
-    const balancedBtn = document.getElementById('balanced-btn');
-    const criticalBtn = document.getElementById('critical-btn');
-
-    // Update button styling
-    balancedBtn.className = 'flex-1 py-2 px-4 text-sm font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ' + 
-        (story === 'balanced' ? 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-400 shadow-md' : 'bg-gray-600 text-gray-200 hover:bg-gray-700 focus:ring-gray-400 border border-gray-500');
     
-    criticalBtn.className = 'flex-1 py-2 px-4 text-sm font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ' + 
-        (story === 'critical' ? 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-400 focus:ring-offset-2 shadow-md' : 'bg-gray-600 text-gray-200 hover:bg-gray-700 focus:ring-gray-400 border border-gray-500');
-
-    // Toggle visibility of narrative sections
-    sections.querySelectorAll('[data-story]').forEach(el => {
-        if (el.getAttribute('data-story') === story) {
-            el.classList.remove('hidden');
-        } else {
-            el.classList.add('hidden');
-        }
-    });
-    
-    // Reset scroll and visualization to step 0
-    sections.scrollTo({ top: 0, behavior: 'smooth' }); // Smoothly scroll to top
-    
-    d3.selectAll(".step").classed("is-active", false);
-    d3.select(`[data-story="${story}"] .step[data-step="0"]`).classed("is-active", true);
-    initializeVisualization(); // Re-initialize the history when changing stories
-    updateVisualization(0);
-}
-
-
-// 1. Initialize the visualization and setup the story toggle on load
-window.onload = function() {
-    initializeVisualization();
-    setupScrollHandler();
-    
-    // Set initial story state and attach listeners
-    updateStory('balanced'); // Default story view
-    document.getElementById('balanced-btn').addEventListener('click', () => updateStory('balanced'));
-    document.getElementById('critical-btn').addEventListener('click', () => updateStory('critical'));
+    // Ensure graphic is hidden when setting up the observer (e.g., when switching stories)
+    graphicCol.classList.add('is-hidden'); 
 };
 
-// 2. Handle Resize
+
+// --- STORY TOGGLE LOGIC ---
+
+const updateStory = (story) => {
+    if (story === currentStory) return; // No change needed
+
+    currentStory = story;
+    
+    // 1. Update UI (Buttons and Story Visibility)
+    if (story === 'balanced') {
+        balancedBtn.classList.add('is-active-view', 'bg-green-700');
+        balancedBtn.classList.remove('bg-green-600');
+        criticalBtn.classList.remove('is-active-view', 'bg-red-700');
+        criticalBtn.classList.add('bg-red-600');
+        balancedStoryDiv.style.display = 'block';
+        criticalStoryDiv.style.display = 'none';
+        
+    } else if (story === 'critical') {
+        criticalBtn.classList.add('is-active-view', 'bg-red-700');
+        criticalBtn.classList.remove('bg-red-600');
+        balancedBtn.classList.remove('is-active-view', 'bg-green-700');
+        balancedBtn.classList.add('bg-green-600');
+        criticalStoryDiv.style.display = 'block';
+        balancedStoryDiv.style.display = 'none';
+    }
+
+    // 2. Reset scroll position to the top of the sections-col
+    document.getElementById('sections-col').scrollTop = 0;
+    window.scrollTo(0, 0);
+
+    // 3. Re-initialize the scroll handler for the new active story
+    setupScrollHandler();
+};
+
+
+// --- Entry Point ---
+window.onload = function() {
+    // 1. Initialize D3 elements (SVG, scales, axis, etc.)
+    initializeVisualization();
+    
+    // 2. Setup initial state and listeners
+    // Default to 'balanced' view on load
+    updateStory('balanced'); 
+    
+    balancedBtn.addEventListener('click', () => updateStory('balanced'));
+    criticalBtn.addEventListener('click', () => updateStory('critical'));
+    
+    // Initial setup of the scroll handler is called inside updateStory('balanced')
+};
+
+// --- Handle Resize ---
 window.addEventListener('resize', () => {
-    // Debounce the resize handler for performance
     if (window.resizeTimer) clearTimeout(window.resizeTimer);
     window.resizeTimer = setTimeout(() => {
-        // Find the currently active step index
-        const activeStepElement = d3.select(".step.is-active").node();
+        
+        const visibleSectionId = `${currentStory}-story`;
+        // Find the index of the currently active step
+        const activeStepElement = d3.select(`#${visibleSectionId} .step.is-active`).node();
         const activeStepIndex = activeStepElement ? parseInt(activeStepElement.dataset.step) : 0;
         
-        // Re-initialize and re-render the visualization on resize
-        initializeVisualization();
+        initializeVisualization(); // Always re-initialize to update dimensions
+        
+        // If we are at the target step AND in the critical story, redraw the visualization
+        if (currentStory === 'critical' && activeStepIndex === TARGET_STEP_INDEX) {
+            updateVisualization(); 
+            graphicCol.classList.remove('is-hidden');
+        } else {
+            // Otherwise, ensure it remains hidden
+            graphicCol.classList.add('is-hidden');
+        }
 
-        // Since updateVisualization already rebuilds the path, we just call it.
-        updateVisualization(activeStepIndex);
-
-    }, 250); // 250ms debounce time
+        // Re-setup the scroll handler
+        setupScrollHandler();
+    }, 250);
 });
